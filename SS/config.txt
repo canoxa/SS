@@ -1,14 +1,39 @@
 SQL injection
 $_GET,$_POST,$_COOKIE
-mysql_escape_string,mysql_real_escape_string,mysql_real_escape_string
-mysql_query,mysql_unbuffered_query,mysql_db_query
+pg_escape_string,pg_escape_bytea
+pg_query,pg_send_query
 
 SQL injection
 $_GET,$_POST,$_COOKIE
-pg_escape_string,pg_escape_bytea
-pg_query,pg_send_query
- 
+mysql_escape_string,mysql_real_escape_string,mysql_real_escape_string
+mysql_query,mysql_unbuffered_query,mysql_db_query
+
 SQL Injection
 $_GET,$_POST,$_COOKIE
 mysqli_escape_string,mysqli_real_escape_string
 mysqli_query,mysqli_real_query,mysqli_master_query,mysqli_multi_query
+
+SQL Injection
+$_GET,$_POST,$_COOKIE
+mysqli_stmt_bind_param
+mysqli_stmt_execute,mysqli_execute
+
+SQL Injection
+$_GET,$_POST,$_COOKIE
+db2_escape_string
+db2_exec
+
+SQL Injection
+$_GET,$_POST,$_COOKIE
+mysqli::escape_string,mysqli::real_escape_string
+mysqli::query,mysqli::multi_query,mysqli::real_query
+
+SQL Injection
+$_GET,$_POST,$_COOKIE
+mysqli_stmt::bind_param
+mysqli_stmt::execute
+
+Cross site scripting
+$_GET,$_POST,$_COOKIE,$_REQUEST,HTTP_GET_VARS,HTTP_POST_VARS,HTTP_COOKIE_VARS,HTTP_REQUEST_VARS,$_FILES,$_SERVER
+htmlentities,htmlspecialchars,strip_tags,urlencode
+echo,print,printf,die,error,exit

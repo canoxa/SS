@@ -19,6 +19,13 @@ import java.util.Map;
 public class Analyzer {
 	
 
+	public static List<Pattern> patterns=new ArrayList<Pattern>();
+	
+	public static List<Pattern> patternsSQLI=new ArrayList<Pattern>();
+	public static List<Pattern> patternsXSS=new ArrayList<Pattern>();
+	
+	public static Slice slice;
+	
 	private static String vulnCode = "";
 	private static Map<String,String> sinkPointMap = new HashMap<>();
 
@@ -35,12 +42,46 @@ public class Analyzer {
 		//Read the input file
 		readFile(args[0]);
 		//Check vulnerability in the code
-		isVuln();
-		
+		analysis();
+		//isVuln();
+	
 	}
 
 
+	public static void analysis()
+	{
+		boolean isvulnerableSQLI=false;
+		boolean isvulnerableXSS=false;
+		String res="";
+		for (Pattern p : patterns)
+			if(slice.isWhatType(p))
+				res=p.vulnType;
 
+	      
+		if(res.contains("sql injection"))
+		{
+
+			for(Pattern p: patternsSQLI)
+			{
+				if(slice.isVulnurableSQLI(p))
+				isvulnerableSQLI=true;
+			}
+		}
+		if(res.contains("cross site scripting"))
+		{
+			for(Pattern p: patternsXSS)
+			{
+				if(slice.isVulnurableXSS(p))
+				isvulnerableXSS=true;
+			}
+		}
+	       	
+		if(isvulnerableSQLI)
+	        System.out.println("Vulnerability: SQL Injection");
+		else if(isvulnerableXSS)
+	        System.out.println("Vulnerability: Cross site scripting");
+
+	}
 
 	/*
 	 * 	check vulnerability type
@@ -71,13 +112,11 @@ public class Analyzer {
 
 
 	private static void readFile(String file) throws IOException {
-		
 		List<String> lines = Files.readAllLines(Paths.get(file), StandardCharsets.UTF_8);
-		
 		for (String string : lines) {
 			vulnCode = vulnCode+ string;
 		}
-		
+		slice=new Slice(lines);
 	}
 
 
@@ -91,34 +130,64 @@ public class Analyzer {
 			fopen = new FileReader("config.txt");
 			br = new  BufferedReader(fopen);
 			String line = null;
+			
+			
 			while ((line = br.readLine()) != null) {
+				
 				if (line.trim().isEmpty()){			
-					
-					fillPointMaps(vuln);
-					
+					//fillPointMaps(vuln);
+					Pattern s=new Pattern(vuln);
+
+					patterns.add(s);
+
+					//
+					if(s.vulnType.contains("injection"))
+					{
+						patternsSQLI.add(s);
+					}
+					if(s.vulnType.contains("cross site scripting"))
+					{
+					patternsXSS.add(s);
+					}
+					//
+					vuln.clear();
 				}else{
 					vuln.add(line);
-				}
-								
+				}	
+				
 			}
-			fillPointMaps(vuln);
 			
-			
+			Pattern p=new Pattern(vuln);
+			patterns.add(p);
+
+			if(p.vulnType.contains("injection"))
+			{
+				patternsSQLI.add(p);
+			}
+			if(p.vulnType.contains("cross site scripting"))
+			{
+			patternsXSS.add(p);
+			}
+
 			
 		} catch (Exception e) {
 			System.err.println("Error: Target File Cannot Be Read");
 		}
-
 	}
-
-
+	
+	
 	//
 	private static void fillPointMaps(List<String> vuln) {
+		
 		String vulnType = vuln.get(0).toLowerCase();
 		List<String> entryPointList = Arrays.asList(vuln.get(1).split(","));
-		List<String> stanFuncList = Arrays.asList(vuln.get(2).split(","));
+		List<String> sanitFuncList = Arrays.asList(vuln.get(2).split(","));
 		List<String> vulnPointList = Arrays.asList(vuln.get(3).split(","));
 
+		
+		patterns.add(new Pattern(vuln));
+		slice=new Slice(vuln);
+		
 		switch (vulnType) {
 		case "sql injection":	
 			for (String eP : entryPointList) {
@@ -134,9 +203,9 @@ public class Analyzer {
 				
 				if (SqliAnalyzer.sinkPointMap.containsKey(vP)) {
 					//If new config file has new entry for the same sink, usually this wont happen
-					SqliAnalyzer.sinkPointMap.get(vP).addAll(stanFuncList);
+					SqliAnalyzer.sinkPointMap.get(vP).addAll(sanitFuncList);
 				}else {
-					SqliAnalyzer.sinkPointMap.put(vP, stanFuncList );
+					SqliAnalyzer.sinkPointMap.put(vP, sanitFuncList );
 				}
 
 			}
@@ -154,9 +223,9 @@ public class Analyzer {
 				sinkPointMap.put(vP, "xss");
 				if (XssAnalyser.sinkPointMap.containsKey(vP)) {
 					//If new config file has new entry for the same sink, usually this wont happen
-					XssAnalyser.sinkPointMap.get(vP).addAll(stanFuncList);
+					XssAnalyser.sinkPointMap.get(vP).addAll(sanitFuncList);
 				}else {
-					XssAnalyser.sinkPointMap.put(vP, stanFuncList );
+					XssAnalyser.sinkPointMap.put(vP, sanitFuncList );
 				}
 
 			}
