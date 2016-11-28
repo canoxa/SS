@@ -11,6 +11,10 @@ public class Slice {
 	public String query = "";
 	public boolean vulnerability=false;
 	public List<String> varinsidequery=new ArrayList<String>();
+	private String sink = "";
+	private String entryPoint = "";
+	private String sanitize = "";
+
 	
 	public Slice(List<String> x)
 	{
@@ -149,6 +153,7 @@ public class Slice {
 	public String separateString(String line,String lastword)
 	{
 		String value= line.split(lastword)[1];
+		
 		String value2=value.split(">|\\;")[0];
 		return value;
 	}
@@ -230,5 +235,114 @@ public class Slice {
 			}
 		}
 		}
+	}
+
+	//-------> Generic 
+	
+	public void isVulnerable(Pattern x) {
+		pattern = x;
+		findSink3();
+		
+	}
+
+	private void findSink3() {
+		//look for the sink in all lines
+		for (String l : lines)
+		{ 
+			for (String e : pattern.vulnPointList) 
+			{	// If found sink look if in the same line finds the entry point
+				if(l.contains(e))
+				{
+					sink = e;
+					String x = separateString(l, e);
+					
+					for (String z : pattern.entryPointList) 
+					{
+						if(x.contains(z))
+						{
+							entryPoint = z;
+							output();
+							return;
+						}
+					}
+					//Entry point not found, split the string to find variables
+					String[] var =  separateString2(x);
+					//recursive search of sanitization func and entry points 
+					recursiveFind(var);
+					
+							
+										
+				}
+			}
+		}
+	}
+
+	private void recursiveFind(String[] var){
+		List<String> variablesinquery= new ArrayList<String>();
+		//search variables in line
+		for(String v : var)
+		{
+        if(v.contains("$"))
+        		{
+        			variablesinquery.add(v);
+        		}
+		}		
+		//If no more variables found, end of recursive search (we are in the top of the file)
+		if (variablesinquery.isEmpty()) {
+			output();
+			return;
+		}
+		
+		String valueofvariable = "";
+		for(String o: variablesinquery)
+		{
+			
+			String aux =returnValueOfVariable(o);
+			if (!aux.isEmpty()) {
+				valueofvariable = aux;
+			}
+			for(String p : pattern.sanitFuncList)
+			{	
+				if(valueofvariable.contains(p))
+				{
+					sanitize = p;
+				}																
+			}
+			
+			for (String p1 : pattern.entryPointList) 
+			{
+				if(valueofvariable.contains(p1))
+				{
+					entryPoint = p1;
+					output();
+					return;
+				}
+			}
+		}
+		// split String to find variables
+		String[] array= separateString2(valueofvariable);
+		recursiveFind(array);
+		
+	}
+	
+	private void output() {
+		if (sanitize.isEmpty()) {
+			System.out.println("The slice is vulnerable");
+			System.out.println("Entry point: " + entryPoint);
+			System.out.println("Sensitive sink: " + sink);
+		}else {
+			System.out.println("The slice is NOT vulnerable");
+			System.out.println("Entry point: " + entryPoint);
+			System.out.println("Sanitization function: " + sanitize);
+			System.out.println("Sensitive sink: " + sink);
+		}
+
+	}
+
+	private String[] separateString2( String e) {
+		String value= e;
+		value = value.replaceAll("[)(?']", " ");
+		String[] value2 = value.replaceAll("^[,\\s]+", "").split("[,\\s]+");
+		return value2;
 	}
 }

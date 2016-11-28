@@ -1,8 +1,5 @@
 package pt.ulisboa.tecnico.ssoft.analizer;
 
-import pt.ulisboa.tecnico.ssoft.analizer.SqliAnalyzer;
-import pt.ulisboa.tecnico.ssoft.analizer.XssAnalyser;
-
 import java.io.BufferedReader;
 import java.io.FileReader;
 import java.io.IOException;
@@ -12,6 +9,7 @@ import java.nio.file.Paths;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.HashMap;
+import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 
@@ -24,11 +22,11 @@ public class Analyzer {
 	public static List<Pattern> patternsSQLI=new ArrayList<Pattern>();
 	public static List<Pattern> patternsXSS=new ArrayList<Pattern>();
 	
+	public static Map<String,List<Pattern>> patternsList = new HashMap<>();
+	
 	public static Slice slice;
 	
 	private static String vulnCode = "";
-	private static Map<String,String> sinkPointMap = new HashMap<>();
-
 	public static void main(String[] args) throws IOException {
 	
 		if(args.length != 1)
@@ -43,7 +41,6 @@ public class Analyzer {
 		readFile(args[0]);
 		//Check vulnerability in the code
 		analysis();
-		//isVuln();
 	
 	}
 
@@ -57,8 +54,16 @@ public class Analyzer {
 			if(slice.isWhatType(p))
 				res=p.vulnType;
 
-	      
-		if(res.contains("sql injection"))
+		
+		//-------> Generic 
+		
+		for(Pattern x: patternsList.get(res)){
+			slice.isVulnerable(x);	
+		}
+	    
+		//-------> Generic 
+		
+		/*if(res.contains("sql injection"))
 		{
 
 			for(Pattern p: patternsSQLI)
@@ -79,44 +84,20 @@ public class Analyzer {
 		if(isvulnerableSQLI)
 	        System.out.println("Vulnerability: SQL Injection");
 		else if(isvulnerableXSS)
-	        System.out.println("Vulnerability: Cross site scripting");
+	        System.out.println("Vulnerability: Cross site scripting");*/
 
 	}
-
-	/*
-	 * 	check vulnerability type
-	 *  run validation check corresponding to type
-	 *  
-	 */
-	private static void isVuln() {
-		
-		for (String sink : sinkPointMap.keySet()) {
-			if (vulnCode.contains(sink)) {
-				switch (sinkPointMap.get(sink)) {
-				case "sqli":
-					//TODO sqli validation check
-					SqliAnalyzer.validate(vulnCode,sink);
-					break;
-				case "xss":
-				//TODO xss validation check
-					XssAnalyser.validate(vulnCode,sink);
-				break;
-				default:
-					break;
-				}
-			}
-		}
-		
-	}
-
-
 
 	private static void readFile(String file) throws IOException {
 		List<String> lines = Files.readAllLines(Paths.get(file), StandardCharsets.UTF_8);
 		for (String string : lines) {
-			vulnCode = vulnCode+ string;
+			vulnCode = vulnCode+ string;			
 		}
-		slice=new Slice(lines);
+		
+		List<String> nLines = new ArrayList<String>(Arrays.asList(vulnCode.split(";")));
+
+		slice= new Slice(nLines);
+		//slice=new Slice(lines);
 	}
 
 
@@ -139,16 +120,25 @@ public class Analyzer {
 					Pattern s=new Pattern(vuln);
 
 					patterns.add(s);
-
+					
+					//-------> Generic 
+					if(patternsList.get(s.vulnType) == null){
+						patternsList.put(s.vulnType, new ArrayList<Pattern>());
+						patternsList.get(s.vulnType).add(s);
+					}else {
+						patternsList.get(s.vulnType).add(s);
+					}
+					//-------> Generic 
+					
 					//
-					if(s.vulnType.contains("injection"))
+					/*if(s.vulnType.contains("injection"))
 					{
 						patternsSQLI.add(s);
 					}
 					if(s.vulnType.contains("cross site scripting"))
 					{
 					patternsXSS.add(s);
-					}
+					}*/
 					//
 					vuln.clear();
 				}else{
@@ -159,87 +149,29 @@ public class Analyzer {
 			
 			Pattern p=new Pattern(vuln);
 			patterns.add(p);
-
-			if(p.vulnType.contains("injection"))
+			
+			//-------> Generic 
+			if(patternsList.get(p.vulnType) == null){
+				patternsList.put(p.vulnType, new ArrayList<Pattern>());
+				patternsList.get(p.vulnType).add(p);
+			}else {
+				patternsList.get(p.vulnType).add(p);
+			}
+			//-------> Generic 
+			
+			/*if(p.vulnType.contains("injection"))
 			{
 				patternsSQLI.add(p);
 			}
 			if(p.vulnType.contains("cross site scripting"))
 			{
 			patternsXSS.add(p);
-			}
+			}*/
 
 			
 		} catch (Exception e) {
 			System.err.println("Error: Target File Cannot Be Read");
 		}
-	}
-	
-	
-	//
-	private static void fillPointMaps(List<String> vuln) {
-		
-		String vulnType = vuln.get(0).toLowerCase();
-		List<String> entryPointList = Arrays.asList(vuln.get(1).split(","));
-		List<String> sanitFuncList = Arrays.asList(vuln.get(2).split(","));
-		List<String> vulnPointList = Arrays.asList(vuln.get(3).split(","));
-
-		
-		patterns.add(new Pattern(vuln));
-		slice=new Slice(vuln);
-		
-		switch (vulnType) {
-		case "sql injection":	
-			for (String eP : entryPointList) {
-				if (!SqliAnalyzer.entryPointMap.containsKey(eP)){
-					SqliAnalyzer.entryPointMap.put(eP, eP);
-
-				}
-			}
-			
-			for (String vP : vulnPointList) {
-				
-				sinkPointMap.put(vP, "sqli");
-				
-				if (SqliAnalyzer.sinkPointMap.containsKey(vP)) {
-					//If new config file has new entry for the same sink, usually this wont happen
-					SqliAnalyzer.sinkPointMap.get(vP).addAll(sanitFuncList);
-				}else {
-					SqliAnalyzer.sinkPointMap.put(vP, sanitFuncList );
-				}
-
-			}
-			
-			break;
-		case "cross site scripting ":
-			for (String eP : entryPointList) {
-				if (!XssAnalyser.entryPointMap.containsKey(eP)){
-					XssAnalyser.entryPointMap.put(eP, eP);
-
-				}
-			}
-			
-			for (String vP : vulnPointList) {
-				sinkPointMap.put(vP, "xss");
-				if (XssAnalyser.sinkPointMap.containsKey(vP)) {
-					//If new config file has new entry for the same sink, usually this wont happen
-					XssAnalyser.sinkPointMap.get(vP).addAll(sanitFuncList);
-				}else {
-					XssAnalyser.sinkPointMap.put(vP, sanitFuncList );
-				}
-
-			}
-			
-			break;
-
-		default:
-			break;
-		}
-		
-		
-		
-		vuln.clear();
-		
 	}
 
 }
